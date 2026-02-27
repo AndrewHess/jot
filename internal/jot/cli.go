@@ -201,24 +201,50 @@ func parsePositiveInt(raw string) (int, error) {
 	return n, nil
 }
 
-const usageText = `jot - scratchpad CLI
+const usageText = `jot - scratchpad CLI for topic-based notes
 
 Usage:
-  jot init
-  jot use <topic>
-  jot add [-c|--checkbox] [-t|--topic <topic>] <text>
-  jot later [-c|--checkbox] <text>
-  jot show
-  jot edit
-  jot done <line-number>
-  jot undone <line-number>
-  jot status
-  jot help
+  jot <command> [arguments]
 
-Notes:
-  - State is stored in .jot/state.json
-  - Notes are stored in .jot/topics/<topic>.md
-  - In a git worktree, the current branch name becomes the active topic
-  - jot later writes to topic later (override via JOT_LATER_TOPIC)
-  - If .jot does not exist, most commands initialize it in the current directory
+Commands:
+  init
+      Initialize .jot in the current project (or nearest parent root).
+  use <topic>
+      Set the persisted topic in .jot/state.json.
+      Alias: checkout
+  add [-c|--checkbox] [-t|--topic <topic>] <text>
+      Append a note. Use -c for a markdown checkbox item.
+      Use -t to add to another topic without switching state.
+  later [-c|--checkbox] <text>
+      Add to the "later" topic (or $JOT_LATER_TOPIC if set).
+  show
+      Print the active topic file.
+      Alias: cat
+  edit
+      Open the active topic file in $VISUAL, then $EDITOR, then nvim, then vi.
+  done <line-number>
+      Mark checkbox at line as complete (- [x] ...).
+  undone <line-number>
+      Mark checkbox at line as incomplete (- [ ] ...).
+  status
+      Show active root, topic source, and topic file path.
+  help
+      Show this message.
+
+Topic resolution:
+  1. If inside a git worktree with a current branch, branch name is used as topic.
+  2. Else the persisted .jot state topic is used.
+  3. add -t / --topic and later override both for that single command.
+
+Storage:
+  - .jot/state.json
+  - .jot/topics/<topic>.md
+
+Examples:
+  jot add "capture a quick note"
+  jot add -c "follow up with QA"
+  jot add -t later "not part of this story"
+  jot later -c "revisit after release"
+  jot show
+  jot done 3
 `

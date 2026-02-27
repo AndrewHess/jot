@@ -13,8 +13,13 @@ Keep notes while coding without breaking flow:
 
 ```bash
 just build
-./bin/jot help
+./bin/jot --help
 ```
+
+Note for macOS:
+- macOS ships a system `jot` at `/usr/bin/jot`.
+- In development, run `./bin/jot` or `just run ...` to ensure you are using this project.
+- After Homebrew install, make sure Homebrew's bin path is before `/usr/bin` in your `PATH`.
 
 ## Dev commands
 
@@ -22,7 +27,7 @@ just build
 just fmt
 just test
 just lint
-just run help
+just run --help
 ```
 
 ## Commands
@@ -37,6 +42,7 @@ jot edit
 jot done <line-number>
 jot undone <line-number>
 jot status
+jot help | jot -h | jot --help
 ```
 
 Behavior notes:

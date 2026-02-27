@@ -7,6 +7,9 @@ gomodcache := "$PWD/.gomodcache"
 default:
   @just --list
 
+help:
+  GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} go run ./cmd/jot --help
+
 fmt:
   gofmt -w cmd/jot/main.go internal/jot/*.go
 
