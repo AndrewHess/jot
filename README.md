@@ -46,7 +46,8 @@ jot help | jot -h | jot --help
 ```
 
 Behavior notes:
-- In a git repository, the active topic is derived from your current branch name.
+- In a git repository, the active topic is derived from your branch only when current state topic is the default `main`.
+- After `jot use <topic>`, your explicit topic is used until you switch again.
 - `jot add -t <topic> ...` writes to another topic without switching current context.
 - `jot later ...` is shorthand for adding to topic `later` (override with `JOT_LATER_TOPIC`).
 

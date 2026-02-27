@@ -276,18 +276,14 @@ func (a *App) Status() error {
 		return err
 	}
 
-	topic, err := resolveActiveTopic(state)
+	topic, source, err := resolveActiveTopicWithSource(state)
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintf(a.stdout, "root: %s\n", root)
 	fmt.Fprintf(a.stdout, "topic: %s\n", topic)
-	if gitTopic, ok := gitBranchTopic(); ok {
-		fmt.Fprintf(a.stdout, "source: git branch (%s)\n", gitTopic)
-	} else {
-		fmt.Fprintln(a.stdout, "source: jot state")
-	}
+	fmt.Fprintf(a.stdout, "source: %s\n", source)
 	fmt.Fprintf(a.stdout, "file: %s\n", filepath.Join(paths.TopicsDir, topic+".md"))
 	return nil
 }
@@ -348,14 +344,27 @@ func resolveTopic(state State, explicitTopic string, forcedTopic string) (string
 }
 
 func resolveActiveTopic(state State) (string, error) {
-	if topic, ok := gitBranchTopic(); ok {
-		return topic, nil
+	topic, _, err := resolveActiveTopicWithSource(state)
+	return topic, err
+}
+
+func resolveActiveTopicWithSource(state State) (string, string, error) {
+	gitTopic, _ := gitBranchTopic()
+	return chooseActiveTopic(state.CurrentTopic, gitTopic)
+}
+
+func chooseActiveTopic(stateTopic string, gitTopic string) (string, string, error) {
+	if strings.TrimSpace(stateTopic) == "" {
+		stateTopic = defaultTopic
+	}
+	if !isTopicNameValid(stateTopic) {
+		return "", "", fmt.Errorf("invalid current topic in state: %q", stateTopic)
 	}
 
-	if !isTopicNameValid(state.CurrentTopic) {
-		return "", fmt.Errorf("invalid current topic in state: %q", state.CurrentTopic)
+	if gitTopic != "" && stateTopic == defaultTopic {
+		return gitTopic, "git branch", nil
 	}
-	return state.CurrentTopic, nil
+	return stateTopic, "jot state", nil
 }
 
 func gitBranchTopic() (string, bool) {

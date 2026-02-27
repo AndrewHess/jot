@@ -50,3 +50,21 @@ func TestLaterTopicNameDefaultAndEnv(t *testing.T) {
 
 	_ = os.Unsetenv(laterTopicEnv)
 }
+
+func TestChooseActiveTopic(t *testing.T) {
+	topic, source, err := chooseActiveTopic("main", "feature-auth")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if topic != "feature-auth" || source != "git branch" {
+		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
+	}
+
+	topic, source, err = chooseActiveTopic("foo", "feature-auth")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if topic != "foo" || source != "jot state" {
+		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
+	}
+}

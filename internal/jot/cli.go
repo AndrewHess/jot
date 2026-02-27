@@ -232,9 +232,9 @@ Commands:
       Show this message.
 
 Topic resolution:
-  1. If inside a git worktree with a current branch, branch name is used as topic.
-  2. Else the persisted .jot state topic is used.
-  3. add -t / --topic and later override both for that single command.
+  1. add -t / --topic and later override for a single command.
+  2. Otherwise, persisted .jot state topic is used.
+  3. If state topic is default "main" and inside git, current branch is used.
 
 Storage:
   - .jot/state.json
