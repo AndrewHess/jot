@@ -1,0 +1,18 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - exhaustive
+    - gocritic
+    - gofmt
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: false

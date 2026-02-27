@@ -1,0 +1,44 @@
+version: 2
+
+project_name: jot
+
+before:
+  hooks:
+    - go mod tidy
+    - GOCACHE=./.gocache go test ./...
+
+builds:
+  - id: jot
+    main: ./cmd/jot
+    binary: jot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - repository:
+      owner: andrewhess
+      name: homebrew-tap
+    homepage: https://github.com/andrewhess/jot
+    description: Fast scratchpad CLI with topic-based notes.
+    license: MIT
+    commit_author:
+      name: Andrew Hess
+      email: andrew@example.com
+    test: |
+      system "#{bin}/jot", "--help"
