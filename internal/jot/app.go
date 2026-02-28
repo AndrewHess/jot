@@ -18,6 +18,8 @@ const (
 	toolDirName   = ".jot"
 	topicsDirName = "topics"
 	stateFileName = "state.json"
+	colorStart    = "\033[38;5;214m"
+	colorEnd      = "\033[0m"
 )
 
 var topicSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
@@ -173,14 +175,14 @@ func (a *App) Show(topicOverride string) error {
 		return err
 	}
 	if len(strings.TrimSpace(string(content))) == 0 {
-		if _, err := fmt.Fprintln(a.stdout, "(empty)"); err != nil {
+		if _, err := fmt.Fprintln(a.stdout, a.tagLine("empty")); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	lines := splitLines(string(content))
-	for _, line := range numberLines(lines) {
+	for _, line := range numberLines(lines, isTTYWriter(a.stdout)) {
 		if _, err := fmt.Fprintln(a.stdout, line); err != nil {
 			return err
 		}
@@ -400,15 +402,20 @@ func resolveTopic(explicitTopic string, forcedTopic string) (string, string, err
 }
 
 func invalidTopicError(topic string) error {
-	return fmt.Errorf("invalid topic %q: use path-like names such as foo/bar with [A-Za-z0-9._-] segments, no leading slash, and no dot segments", topic)
+	return fmt.Errorf("invalid topic %q: must match ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ (segments cannot be . or ..)", topic)
 }
 
 func (a *App) metaLine(message string) string {
+	return a.tagLine("jot") + " " + message
+}
+
+func (a *App) tagLine(tag string) string {
+	segment := "[" + tag + "]"
 	// Use styling only for terminal output so redirected output stays clean.
 	if isTTYWriter(a.stdout) {
-		return "\033[1;36m[jot]\033[0m " + message
+		return colorStart + segment + colorEnd
 	}
-	return "[jot] " + message
+	return segment
 }
 
 func isTTYWriter(w io.Writer) bool {
@@ -542,7 +549,7 @@ func ensureTopicFile(topicsDir string, topic string) error {
 	}
 }
 
-func numberLines(lines []string) []string {
+func numberLines(lines []string, color bool) []string {
 	width := 2
 	if len(lines) > 99 {
 		width = len(strconv.Itoa(len(lines)))
@@ -550,7 +557,11 @@ func numberLines(lines []string) []string {
 
 	result := make([]string, 0, len(lines))
 	for i, line := range lines {
-		result = append(result, fmt.Sprintf("%*d | %s", width, i+1, line))
+		prefix := fmt.Sprintf("%*d │", width, i+1)
+		if color {
+			prefix = colorStart + prefix + colorEnd
+		}
+		result = append(result, prefix+" "+line)
 	}
 	return result
 }

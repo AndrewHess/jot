@@ -126,11 +126,36 @@ func TestAddLinesFromStdin(t *testing.T) {
 }
 
 func TestNumberLinesWidth(t *testing.T) {
-	lines := numberLines([]string{"first", "second"})
+	lines := numberLines([]string{"first", "second"}, false)
 	if len(lines) != 2 {
 		t.Fatalf("unexpected line count: %d", len(lines))
 	}
-	if lines[0] != " 1 | first" || lines[1] != " 2 | second" {
+	if lines[0] != " 1 │ first" || lines[1] != " 2 │ second" {
 		t.Fatalf("unexpected numbered lines: %#v", lines)
+	}
+}
+
+func TestNumberLinesColorized(t *testing.T) {
+	lines := numberLines([]string{"first"}, true)
+	if len(lines) != 1 {
+		t.Fatalf("unexpected line count: %d", len(lines))
+	}
+	want := "\033[38;5;214m 1 │\033[0m first"
+	if lines[0] != want {
+		t.Fatalf("unexpected colored line: %q", lines[0])
+	}
+}
+
+func TestTagLineAndMetaLineNonTTY(t *testing.T) {
+	app, err := NewApp(bytes.NewBuffer(nil), &bytes.Buffer{}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("NewApp returned error: %v", err)
+	}
+
+	if got := app.tagLine("empty"); got != "[empty]" {
+		t.Fatalf("unexpected tag line: %q", got)
+	}
+	if got := app.metaLine("hello"); got != "[jot] hello" {
+		t.Fatalf("unexpected meta line: %q", got)
 	}
 }
