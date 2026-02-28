@@ -39,6 +39,7 @@ brews:
     license: MIT
     commit_author:
       name: Andrew Hess
-      email: andrew@example.com
+      email: andrew7hess@gmail.com
     test: |
-      system "#{bin}/jot", "--help"
+      system "#{bin}/jot", "init"
+      system "#{bin}/jot", "add", "-t", "test", "hello"
