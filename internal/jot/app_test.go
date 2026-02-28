@@ -51,20 +51,42 @@ func TestLaterTopicNameDefaultAndEnv(t *testing.T) {
 	_ = os.Unsetenv(laterTopicEnv)
 }
 
-func TestChooseActiveTopic(t *testing.T) {
-	topic, source, err := chooseActiveTopic("main", "feature-auth")
+func TestResolveTopicExplicit(t *testing.T) {
+	topic, source, err := resolveTopic("foo", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if topic != "feature-auth" || source != "git branch" {
+	if topic != "foo" || source != "explicit" {
 		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
 	}
+}
 
-	topic, source, err = chooseActiveTopic("foo", "feature-auth")
+func TestResolveTopicRequiresExplicitOutsideGit(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(wd)
+	})
+
+	tmp := t.TempDir()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+
+	_, _, err = resolveTopic("", "")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveTopicForced(t *testing.T) {
+	topic, source, err := resolveTopic("", "later")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if topic != "foo" || source != "jot state" {
+	if topic != "later" || source != "explicit" {
 		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
 	}
 }

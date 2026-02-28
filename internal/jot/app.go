@@ -17,15 +17,13 @@ const (
 	toolDirName   = ".jot"
 	topicsDirName = "topics"
 	stateFileName = "state.json"
-	defaultTopic  = "main"
 	laterTopicEnv = "JOT_LATER_TOPIC"
 )
 
 var topicPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 type State struct {
-	Version      int    `json:"version"`
-	CurrentTopic string `json:"current_topic"`
+	Version int `json:"version"`
 }
 
 type App struct {
@@ -68,32 +66,6 @@ func (a *App) Init() error {
 	return nil
 }
 
-func (a *App) UseTopic(topic string) error {
-	if !isTopicNameValid(topic) {
-		return fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", topic)
-	}
-
-	root, err := ensureWorkingRoot()
-	if err != nil {
-		return err
-	}
-
-	state, paths, err := loadState(root)
-	if err != nil {
-		return err
-	}
-	state.CurrentTopic = topic
-	if err := saveState(paths.StatePath, state); err != nil {
-		return err
-	}
-	if err := ensureTopicFile(paths.TopicsDir, topic); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(a.stdout, "current topic: %s\n", topic)
-	return nil
-}
-
 func (a *App) Add(options AddOptions) error {
 	return a.addToTopic(options, "")
 }
@@ -108,12 +80,12 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 		return err
 	}
 
-	state, paths, err := loadState(root)
+	paths, err := ensurePaths(root)
 	if err != nil {
 		return err
 	}
 
-	targetTopic, err := resolveTopic(state, options.Topic, forcedTopic)
+	targetTopic, source, err := resolveTopic(options.Topic, forcedTopic)
 	if err != nil {
 		return err
 	}
@@ -137,22 +109,22 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 		return err
 	}
 
-	fmt.Fprintf(a.stdout, "added to %s\n", targetTopic)
+	fmt.Fprintf(a.stdout, "added to %s (%s)\n", targetTopic, source)
 	return nil
 }
 
-func (a *App) Show() error {
+func (a *App) Show(topicOverride string) error {
 	root, err := ensureWorkingRoot()
 	if err != nil {
 		return err
 	}
 
-	state, paths, err := loadState(root)
+	paths, err := ensurePaths(root)
 	if err != nil {
 		return err
 	}
 
-	topic, err := resolveActiveTopic(state)
+	topic, _, err := resolveTopic(topicOverride, "")
 	if err != nil {
 		return err
 	}
@@ -173,18 +145,18 @@ func (a *App) Show() error {
 	return err
 }
 
-func (a *App) Edit() error {
+func (a *App) Edit(topicOverride string) error {
 	root, err := ensureWorkingRoot()
 	if err != nil {
 		return err
 	}
 
-	state, paths, err := loadState(root)
+	paths, err := ensurePaths(root)
 	if err != nil {
 		return err
 	}
 
-	topic, err := resolveActiveTopic(state)
+	topic, _, err := resolveTopic(topicOverride, "")
 	if err != nil {
 		return err
 	}
@@ -221,17 +193,17 @@ func (a *App) Edit() error {
 	return fmt.Errorf("failed to launch editor %q: %w", editor, err)
 }
 
-func (a *App) SetCheckbox(lineNumber int, done bool) error {
+func (a *App) SetCheckbox(lineNumber int, done bool, topicOverride string) error {
 	root, err := ensureWorkingRoot()
 	if err != nil {
 		return err
 	}
 
-	state, paths, err := loadState(root)
+	paths, err := ensurePaths(root)
 	if err != nil {
 		return err
 	}
-	topic, err := resolveActiveTopic(state)
+	topic, _, err := resolveTopic(topicOverride, "")
 	if err != nil {
 		return err
 	}
@@ -265,18 +237,18 @@ func (a *App) SetCheckbox(lineNumber int, done bool) error {
 	return os.WriteFile(topicPath, []byte(result), 0o644)
 }
 
-func (a *App) Status() error {
+func (a *App) Status(topicOverride string) error {
 	root, err := ensureWorkingRoot()
 	if err != nil {
 		return err
 	}
 
-	state, paths, err := loadState(root)
+	paths, err := ensurePaths(root)
 	if err != nil {
 		return err
 	}
 
-	topic, source, err := resolveActiveTopicWithSource(state)
+	topic, source, err := resolveTopic(topicOverride, "")
 	if err != nil {
 		return err
 	}
@@ -326,45 +298,24 @@ func isTopicNameValid(topic string) bool {
 	return topicPattern.MatchString(topic)
 }
 
-func resolveTopic(state State, explicitTopic string, forcedTopic string) (string, error) {
+func resolveTopic(explicitTopic string, forcedTopic string) (string, string, error) {
 	switch {
 	case forcedTopic != "":
 		if !isTopicNameValid(forcedTopic) {
-			return "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", forcedTopic)
+			return "", "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", forcedTopic)
 		}
-		return forcedTopic, nil
+		return forcedTopic, "explicit", nil
 	case explicitTopic != "":
 		if !isTopicNameValid(explicitTopic) {
-			return "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", explicitTopic)
+			return "", "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", explicitTopic)
 		}
-		return explicitTopic, nil
+		return explicitTopic, "explicit", nil
 	default:
-		return resolveActiveTopic(state)
+		if topic, ok := gitBranchTopic(); ok {
+			return topic, "git branch", nil
+		}
+		return "", "", errors.New("unable to resolve topic outside a git branch; pass -t <topic>")
 	}
-}
-
-func resolveActiveTopic(state State) (string, error) {
-	topic, _, err := resolveActiveTopicWithSource(state)
-	return topic, err
-}
-
-func resolveActiveTopicWithSource(state State) (string, string, error) {
-	gitTopic, _ := gitBranchTopic()
-	return chooseActiveTopic(state.CurrentTopic, gitTopic)
-}
-
-func chooseActiveTopic(stateTopic string, gitTopic string) (string, string, error) {
-	if strings.TrimSpace(stateTopic) == "" {
-		stateTopic = defaultTopic
-	}
-	if !isTopicNameValid(stateTopic) {
-		return "", "", fmt.Errorf("invalid current topic in state: %q", stateTopic)
-	}
-
-	if gitTopic != "" && stateTopic == defaultTopic {
-		return gitTopic, "git branch", nil
-	}
-	return stateTopic, "jot state", nil
 }
 
 func gitBranchTopic() (string, bool) {
@@ -441,6 +392,10 @@ func ensureWorkingRoot() (string, error) {
 	return wd, err
 }
 
+func ensurePaths(root string) (Paths, error) {
+	return ensureInitialized(root)
+}
+
 func ensureInitialized(root string) (Paths, error) {
 	jotDir := filepath.Join(root, toolDirName)
 	topicsDir := filepath.Join(jotDir, topicsDirName)
@@ -451,11 +406,8 @@ func ensureInitialized(root string) (Paths, error) {
 	}
 
 	if _, err := os.Stat(statePath); errors.Is(err, os.ErrNotExist) {
-		initial := State{Version: 1, CurrentTopic: defaultTopic}
+		initial := State{Version: 1}
 		if err := saveState(statePath, initial); err != nil {
-			return Paths{}, err
-		}
-		if err := ensureTopicFile(topicsDir, defaultTopic); err != nil {
 			return Paths{}, err
 		}
 	} else if err != nil {
@@ -476,33 +428,6 @@ func ensureTopicFile(topicsDir string, topic string) error {
 	} else {
 		return err
 	}
-}
-
-func loadState(root string) (State, Paths, error) {
-	paths, err := ensureInitialized(root)
-	if err != nil {
-		return State{}, Paths{}, err
-	}
-
-	raw, err := os.ReadFile(paths.StatePath)
-	if err != nil {
-		return State{}, Paths{}, err
-	}
-
-	var state State
-	if err := json.Unmarshal(raw, &state); err != nil {
-		return State{}, Paths{}, err
-	}
-	if state.CurrentTopic == "" {
-		state.CurrentTopic = defaultTopic
-	}
-	if !isTopicNameValid(state.CurrentTopic) {
-		return State{}, Paths{}, fmt.Errorf("invalid current topic in state: %q", state.CurrentTopic)
-	}
-	if err := ensureTopicFile(paths.TopicsDir, state.CurrentTopic); err != nil {
-		return State{}, Paths{}, err
-	}
-	return state, paths, nil
 }
 
 func saveState(path string, state State) error {

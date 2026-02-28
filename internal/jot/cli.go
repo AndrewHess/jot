@@ -13,7 +13,6 @@ type Command int
 const (
 	CommandHelp Command = iota
 	CommandInit
-	CommandUse
 	CommandAdd
 	CommandLater
 	CommandShow
@@ -62,22 +61,20 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) err
 		return nil
 	case CommandInit:
 		return app.Init()
-	case CommandUse:
-		return app.UseTopic(parsed.Topic)
 	case CommandAdd:
 		return app.Add(parsed.AddOptions)
 	case CommandLater:
 		return app.AddToLater(parsed.AddOptions)
 	case CommandShow:
-		return app.Show()
+		return app.Show(parsed.Topic)
 	case CommandEdit:
-		return app.Edit()
+		return app.Edit(parsed.Topic)
 	case CommandDone:
-		return app.SetCheckbox(parsed.LineNumber, true)
+		return app.SetCheckbox(parsed.LineNumber, true, parsed.Topic)
 	case CommandUndone:
-		return app.SetCheckbox(parsed.LineNumber, false)
+		return app.SetCheckbox(parsed.LineNumber, false, parsed.Topic)
 	case CommandStatus:
-		return app.Status()
+		return app.Status(parsed.Topic)
 	}
 
 	return fmt.Errorf("unhandled command: %v", parsed.Kind)
@@ -93,33 +90,40 @@ func Parse(args []string) (ParsedCommand, error) {
 		return ParsedCommand{Kind: CommandHelp, OriginalArgs: args}, nil
 	case "init":
 		return ParsedCommand{Kind: CommandInit, OriginalArgs: args}, nil
-	case "use", "checkout":
-		if len(args) != 2 {
-			return ParsedCommand{}, &UsageError{Message: "usage: jot use <topic>"}
-		}
-		return ParsedCommand{Kind: CommandUse, Topic: args[1], OriginalArgs: args}, nil
 	case "add":
 		return parseAdd(args)
 	case "later":
 		return parseLater(args)
 	case "show", "cat":
-		return ParsedCommand{Kind: CommandShow, OriginalArgs: args}, nil
+		topic, err := parseTopicFlag(args[1:], "usage: jot show [-t|--topic <topic>]")
+		if err != nil {
+			return ParsedCommand{}, err
+		}
+		return ParsedCommand{Kind: CommandShow, Topic: topic, OriginalArgs: args}, nil
 	case "edit":
-		return ParsedCommand{Kind: CommandEdit, OriginalArgs: args}, nil
+		topic, err := parseTopicFlag(args[1:], "usage: jot edit [-t|--topic <topic>]")
+		if err != nil {
+			return ParsedCommand{}, err
+		}
+		return ParsedCommand{Kind: CommandEdit, Topic: topic, OriginalArgs: args}, nil
 	case "done":
-		line, err := parseLineNumber(args, "usage: jot done <line-number>")
+		line, topic, err := parseLineNumberAndTopic(args[1:], "usage: jot done [-t|--topic <topic>] <line-number>")
 		if err != nil {
 			return ParsedCommand{}, err
 		}
-		return ParsedCommand{Kind: CommandDone, LineNumber: line, OriginalArgs: args}, nil
+		return ParsedCommand{Kind: CommandDone, LineNumber: line, Topic: topic, OriginalArgs: args}, nil
 	case "undone":
-		line, err := parseLineNumber(args, "usage: jot undone <line-number>")
+		line, topic, err := parseLineNumberAndTopic(args[1:], "usage: jot undone [-t|--topic <topic>] <line-number>")
 		if err != nil {
 			return ParsedCommand{}, err
 		}
-		return ParsedCommand{Kind: CommandUndone, LineNumber: line, OriginalArgs: args}, nil
+		return ParsedCommand{Kind: CommandUndone, LineNumber: line, Topic: topic, OriginalArgs: args}, nil
 	case "status":
-		return ParsedCommand{Kind: CommandStatus, OriginalArgs: args}, nil
+		topic, err := parseTopicFlag(args[1:], "usage: jot status [-t|--topic <topic>]")
+		if err != nil {
+			return ParsedCommand{}, err
+		}
+		return ParsedCommand{Kind: CommandStatus, Topic: topic, OriginalArgs: args}, nil
 	default:
 		return ParsedCommand{}, &UsageError{Message: fmt.Sprintf("unknown command: %s\n\n%s", args[0], usageText)}
 	}
@@ -181,15 +185,43 @@ func parseAddOptions(rawArgs []string, usage string) (AddOptions, error) {
 	}, nil
 }
 
-func parseLineNumber(args []string, usage string) (int, error) {
-	if len(args) != 2 {
-		return 0, &UsageError{Message: usage}
+func parseTopicFlag(rawArgs []string, usage string) (string, error) {
+	fs := flag.NewFlagSet("topic", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	var topic string
+	fs.StringVar(&topic, "topic", "", "topic override")
+	fs.StringVar(&topic, "t", "", "topic override")
+
+	if err := fs.Parse(rawArgs); err != nil {
+		return "", &UsageError{Message: usage}
 	}
-	n, err := parsePositiveInt(args[1])
+	if len(fs.Args()) != 0 {
+		return "", &UsageError{Message: usage}
+	}
+	return strings.TrimSpace(topic), nil
+}
+
+func parseLineNumberAndTopic(rawArgs []string, usage string) (int, string, error) {
+	fs := flag.NewFlagSet("line", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	var topic string
+	fs.StringVar(&topic, "topic", "", "topic override")
+	fs.StringVar(&topic, "t", "", "topic override")
+	if err := fs.Parse(rawArgs); err != nil {
+		return 0, "", &UsageError{Message: usage}
+	}
+
+	if len(fs.Args()) != 1 {
+		return 0, "", &UsageError{Message: usage}
+	}
+
+	n, err := parsePositiveInt(fs.Args()[0])
 	if err != nil {
-		return 0, &UsageError{Message: usage}
+		return 0, "", &UsageError{Message: usage}
 	}
-	return n, nil
+	return n, strings.TrimSpace(topic), nil
 }
 
 func parsePositiveInt(raw string) (int, error) {
@@ -209,32 +241,28 @@ Usage:
 Commands:
   init
       Initialize .jot in the current project (or nearest parent root).
-  use <topic>
-      Set the persisted topic in .jot/state.json.
-      Alias: checkout
   add [-c|--checkbox] [-t|--topic <topic>] <text>
       Append a note. Use -c for a markdown checkbox item.
-      Use -t to add to another topic without switching state.
   later [-c|--checkbox] <text>
       Add to the "later" topic (or $JOT_LATER_TOPIC if set).
-  show
+  show [-t|--topic <topic>]
       Print the active topic file.
       Alias: cat
-  edit
+  edit [-t|--topic <topic>]
       Open the active topic file in $VISUAL, then $EDITOR, then nvim, then vi.
-  done <line-number>
+  done [-t|--topic <topic>] <line-number>
       Mark checkbox at line as complete (- [x] ...).
-  undone <line-number>
+  undone [-t|--topic <topic>] <line-number>
       Mark checkbox at line as incomplete (- [ ] ...).
-  status
+  status [-t|--topic <topic>]
       Show active root, topic source, and topic file path.
   help
       Show this message.
 
 Topic resolution:
-  1. add -t / --topic and later override for a single command.
-  2. Otherwise, persisted .jot state topic is used.
-  3. If state topic is default "main" and inside git, current branch is used.
+  1. -t / --topic always wins for that command.
+  2. Otherwise current git branch is used as the topic.
+  3. Outside git, pass -t / --topic.
 
 Storage:
   - .jot/state.json

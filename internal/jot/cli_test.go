@@ -44,6 +44,19 @@ func TestParseLater(t *testing.T) {
 	}
 }
 
+func TestParseShowWithTopic(t *testing.T) {
+	cmd, err := Parse([]string{"show", "-t", "later"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cmd.Kind != CommandShow {
+		t.Fatalf("expected CommandShow, got %v", cmd.Kind)
+	}
+	if cmd.Topic != "later" {
+		t.Fatalf("unexpected topic %q", cmd.Topic)
+	}
+}
+
 func TestParseUnknownCommand(t *testing.T) {
 	_, err := Parse([]string{"wat"})
 	if err == nil {
