@@ -2,26 +2,50 @@
 
 `jot` is a lightweight CLI scratchpad with topic-based context, similar to branch-style workflows.
 
-## Why
+## User Guide
 
 Keep notes while coding without breaking flow:
-- Persist state in `.jot/state.json`
-- Keep one active topic at a time
+- Use your current git branch as the default topic
+- Persist notes in `.jot/topics`
 - Add quick bullets or checkbox items
 
-## Install (local dev)
+### Command reference
+
+Use:
+
+```bash
+jot --help
+```
+
+### Behavior
+
+- In a git repository, the active topic defaults to your current branch name.
+- Outside git, pass `-t <topic>` for topic-dependent commands.
+- `jot add -t <topic> ...` writes to any topic as a one-off without switching context.
+- `jot add` with no `[text]` reads from stdin until EOF (`Ctrl-D` on a blank line).
+
+### Storage layout
+
+```text
+.jot/
+  topics/
+    <topic>.md
+```
+
+### macOS note
+
+- macOS ships a system `jot` at `/usr/bin/jot`.
+- In development, run `./bin/jot` or `just run ...` to ensure you are using this project.
+- After Homebrew install, make sure Homebrew's bin path is before `/usr/bin` in your `PATH`.
+
+## Development
 
 ```bash
 just build
 ./bin/jot --help
 ```
 
-Note for macOS:
-- macOS ships a system `jot` at `/usr/bin/jot`.
-- In development, run `./bin/jot` or `just run ...` to ensure you are using this project.
-- After Homebrew install, make sure Homebrew's bin path is before `/usr/bin` in your `PATH`.
-
-## Dev commands
+### Common commands
 
 ```bash
 just fmt
@@ -30,59 +54,6 @@ just lint
 just run --help
 ```
 
-## Commands
-
-```text
-jot init
-jot add [-c|--checkbox] [-t|--topic <topic>] <text>
-jot show [-t|--topic <topic>]
-jot edit [-t|--topic <topic>]
-jot done [-t|--topic <topic>] <line-number>
-jot undone [-t|--topic <topic>] <line-number>
-jot status [-t|--topic <topic>]
-jot help | jot -h | jot --help
-```
-
-Behavior notes:
-- In a git repository, the active topic defaults to your current branch name.
-- Outside git, pass `-t <topic>` for topic-dependent commands.
-- `jot add -t <topic> ...` writes to any topic as a one-off without switching context.
-
-## Layout
-
-```text
-.jot/
-  state.json
-  topics/
-    <topic>.md
-```
-
-## Examples
-
-```bash
-jot init
-jot add "triage flaky test in CI"
-jot add -c "submit fix PR"
-jot add "repro only on arm64"
-jot add -t later "follow up on flaky benchmark"
-jot show
-jot done 1
-jot edit
-# outside git:
-jot show -t later
-```
-
-## Linting
+### Linting
 
 `golangci-lint` is configured in `.golangci.yml`, including `exhaustive` checks for enum switches.
-
-## Homebrew release plan
-
-This repo includes `.goreleaser.yaml` with a `brew` stanza for publishing to a tap repo:
-- Target tap repo: `andrewhess/homebrew-tap`
-- Formula generated on release tags
-
-Before first release:
-- Create `andrewhess/homebrew-tap`
-- Update `commit_author` in `.goreleaser.yaml`
-- Tag a release (example: `v0.1.0`)

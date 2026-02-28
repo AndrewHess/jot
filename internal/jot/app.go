@@ -2,7 +2,6 @@ package jot
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,16 +16,11 @@ import (
 const (
 	toolDirName   = ".jot"
 	topicsDirName = "topics"
-	stateFileName = "state.json"
 	colorStart    = "\033[38;5;214m"
 	colorEnd      = "\033[0m"
 )
 
 var topicSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
-
-type State struct {
-	Version int `json:"version"`
-}
 
 type App struct {
 	stdin  io.Reader
@@ -489,7 +483,6 @@ func normalizeTopicName(raw string) string {
 type Paths struct {
 	JotDir    string
 	TopicsDir string
-	StatePath string
 }
 
 func ensureWorkingRoot() (string, error) {
@@ -515,25 +508,14 @@ func ensurePaths(root string) (Paths, error) {
 func ensureInitialized(root string) (Paths, error) {
 	jotDir := filepath.Join(root, toolDirName)
 	topicsDir := filepath.Join(jotDir, topicsDirName)
-	statePath := filepath.Join(jotDir, stateFileName)
 
 	if err := os.MkdirAll(topicsDir, 0o755); err != nil {
-		return Paths{}, err
-	}
-
-	if _, err := os.Stat(statePath); errors.Is(err, os.ErrNotExist) {
-		initial := State{Version: 1}
-		if err := saveState(statePath, initial); err != nil {
-			return Paths{}, err
-		}
-	} else if err != nil {
 		return Paths{}, err
 	}
 
 	return Paths{
 		JotDir:    jotDir,
 		TopicsDir: topicsDir,
-		StatePath: statePath,
 	}, nil
 }
 
@@ -564,15 +546,6 @@ func numberLines(lines []string, color bool) []string {
 		result = append(result, prefix+" "+line)
 	}
 	return result
-}
-
-func saveState(path string, state State) error {
-	raw, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-	raw = append(raw, '\n')
-	return os.WriteFile(path, raw, 0o644)
 }
 
 func findRootFromWD() (string, bool, error) {
