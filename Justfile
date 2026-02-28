@@ -21,7 +21,21 @@ test:
   GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} go test ./...
 
 lint:
-  golangci-lint run
+  @if ! command -v golangci-lint >/dev/null 2>&1; then \
+    echo "golangci-lint is not installed"; \
+    exit 1; \
+  fi
+  @version=$(golangci-lint --version | sed -n 's/.*version v\([0-9.]*\).*/\1/p'); \
+  required="1.62.0"; \
+  if [ -z "$version" ]; then \
+    echo "unable to parse golangci-lint version"; \
+    exit 1; \
+  fi; \
+  if [ "$(printf '%s\n' "$required" "$version" | sort -V | head -n1)" != "$required" ]; then \
+    echo "golangci-lint $version is too old for this project/toolchain; please upgrade to >= $required"; \
+    exit 1; \
+  fi
+  GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} GOLANGCI_LINT_CACHE=$PWD/.golangci-cache golangci-lint run
 
 run *args:
   GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} go run ./cmd/jot {{args}}
