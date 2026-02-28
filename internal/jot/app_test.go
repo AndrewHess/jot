@@ -76,3 +76,15 @@ func TestResolveTopicForced(t *testing.T) {
 		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
 	}
 }
+
+func TestResolveTopicRejectsDotTopics(t *testing.T) {
+	_, _, err := resolveTopic(".", "")
+	if err == nil {
+		t.Fatal("expected error for dot topic")
+	}
+
+	_, _, err = resolveTopic("..", "")
+	if err == nil {
+		t.Fatal("expected error for dot-dot topic")
+	}
+}

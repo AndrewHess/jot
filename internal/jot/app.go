@@ -290,19 +290,25 @@ func updateCheckboxLine(line string, done bool) (string, error) {
 }
 
 func isTopicNameValid(topic string) bool {
-	return topicPattern.MatchString(topic)
+	if !topicPattern.MatchString(topic) {
+		return false
+	}
+	if topic == "." || topic == ".." {
+		return false
+	}
+	return true
 }
 
 func resolveTopic(explicitTopic string, forcedTopic string) (string, string, error) {
 	switch {
 	case forcedTopic != "":
 		if !isTopicNameValid(forcedTopic) {
-			return "", "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", forcedTopic)
+			return "", "", invalidTopicError(forcedTopic)
 		}
 		return forcedTopic, "explicit", nil
 	case explicitTopic != "":
 		if !isTopicNameValid(explicitTopic) {
-			return "", "", fmt.Errorf("invalid topic %q: only [A-Za-z0-9._-] are allowed", explicitTopic)
+			return "", "", invalidTopicError(explicitTopic)
 		}
 		return explicitTopic, "explicit", nil
 	default:
@@ -311,6 +317,10 @@ func resolveTopic(explicitTopic string, forcedTopic string) (string, string, err
 		}
 		return "", "", errors.New("unable to resolve topic outside a git branch; pass -t <topic>")
 	}
+}
+
+func invalidTopicError(topic string) error {
+	return fmt.Errorf("invalid topic %q: use only [A-Za-z0-9._-], and topic cannot be . or ..", topic)
 }
 
 func gitBranchTopic() (string, bool) {
