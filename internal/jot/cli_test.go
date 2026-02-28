@@ -19,14 +19,14 @@ func TestParseAddWithCheckbox(t *testing.T) {
 }
 
 func TestParseAddWithTopic(t *testing.T) {
-	cmd, err := Parse([]string{"add", "-t", "later", "capture", "this"})
+	cmd, err := Parse([]string{"add", "-t", "later/queue", "capture", "this"})
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
 	if cmd.Kind != CommandAdd {
 		t.Fatalf("expected CommandAdd, got %v", cmd.Kind)
 	}
-	if cmd.AddOptions.Topic != "later" {
+	if cmd.AddOptions.Topic != "later/queue" {
 		t.Fatalf("unexpected topic %q", cmd.AddOptions.Topic)
 	}
 }

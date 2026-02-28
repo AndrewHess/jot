@@ -33,7 +33,7 @@ func TestUpdateCheckboxLineRejectsNonCheckbox(t *testing.T) {
 
 func TestNormalizeTopicName(t *testing.T) {
 	got := normalizeTopicName("feature/auth-flow")
-	if got != "feature-auth-flow" {
+	if got != "feature/auth-flow" {
 		t.Fatalf("unexpected normalized topic %q", got)
 	}
 }
@@ -90,6 +90,26 @@ func TestResolveTopicRejectsDotTopics(t *testing.T) {
 	}
 }
 
+func TestResolveTopicAllowsSlashTopic(t *testing.T) {
+	topic, source, err := resolveTopic("foo/bar", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if topic != "foo/bar" || source != "explicit" {
+		t.Fatalf("unexpected result: topic=%q source=%q", topic, source)
+	}
+}
+
+func TestResolveTopicRejectsUnsafeSlashTopics(t *testing.T) {
+	invalid := []string{"/foo", "foo//bar", "foo/../bar", "foo/./bar"}
+	for _, topic := range invalid {
+		_, _, err := resolveTopic(topic, "")
+		if err == nil {
+			t.Fatalf("expected error for topic %q", topic)
+		}
+	}
+}
+
 func TestAddLinesFromStdin(t *testing.T) {
 	app, err := NewApp(bytes.NewBufferString("first\n\nsecond\n"), &bytes.Buffer{}, &bytes.Buffer{})
 	if err != nil {
@@ -102,5 +122,15 @@ func TestAddLinesFromStdin(t *testing.T) {
 	}
 	if len(lines) != 2 || lines[0] != "- first" || lines[1] != "- second" {
 		t.Fatalf("unexpected lines: %#v", lines)
+	}
+}
+
+func TestNumberLinesWidth(t *testing.T) {
+	lines := numberLines([]string{"first", "second"})
+	if len(lines) != 2 {
+		t.Fatalf("unexpected line count: %d", len(lines))
+	}
+	if lines[0] != " 1 | first" || lines[1] != " 2 | second" {
+		t.Fatalf("unexpected numbered lines: %#v", lines)
 	}
 }

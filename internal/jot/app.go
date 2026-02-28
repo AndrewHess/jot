@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ const (
 	stateFileName = "state.json"
 )
 
-var topicPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+var topicSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 type State struct {
 	Version int `json:"version"`
@@ -177,8 +178,14 @@ func (a *App) Show(topicOverride string) error {
 		}
 		return nil
 	}
-	_, err = a.stdout.Write(content)
-	return err
+
+	lines := splitLines(string(content))
+	for _, line := range numberLines(lines) {
+		if _, err := fmt.Fprintln(a.stdout, line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) Edit(topicOverride string) error {
@@ -352,12 +359,23 @@ func updateCheckboxLine(line string, done bool) (string, error) {
 }
 
 func isTopicNameValid(topic string) bool {
-	if !topicPattern.MatchString(topic) {
+	if topic == "" {
 		return false
 	}
-	if topic == "." || topic == ".." {
+	if strings.HasPrefix(topic, "/") || strings.Contains(topic, "\\") {
 		return false
 	}
+
+	parts := strings.Split(topic, "/")
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+		if !topicSegmentPattern.MatchString(part) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -382,7 +400,7 @@ func resolveTopic(explicitTopic string, forcedTopic string) (string, string, err
 }
 
 func invalidTopicError(topic string) error {
-	return fmt.Errorf("invalid topic %q: use only [A-Za-z0-9._-], and topic cannot be dot or dot-dot", topic)
+	return fmt.Errorf("invalid topic %q: use path-like names such as foo/bar with [A-Za-z0-9._-] segments, no leading slash, and no dot segments", topic)
 }
 
 func (a *App) metaLine(message string) string {
@@ -443,7 +461,7 @@ func normalizeTopicName(raw string) string {
 	prevDash := false
 	for _, r := range raw {
 		switch {
-		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-':
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' || r == '/':
 			b.WriteRune(r)
 			prevDash = false
 		default:
@@ -514,11 +532,27 @@ func ensureInitialized(root string) (Paths, error) {
 
 func ensureTopicFile(topicsDir string, topic string) error {
 	path := filepath.Join(topicsDir, topic+".md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return os.WriteFile(path, []byte(""), 0o644)
 	} else {
 		return err
 	}
+}
+
+func numberLines(lines []string) []string {
+	width := 2
+	if len(lines) > 99 {
+		width = len(strconv.Itoa(len(lines)))
+	}
+
+	result := make([]string, 0, len(lines))
+	for i, line := range lines {
+		result = append(result, fmt.Sprintf("%*d | %s", width, i+1, line))
+	}
+	return result
 }
 
 func saveState(path string, state State) error {
