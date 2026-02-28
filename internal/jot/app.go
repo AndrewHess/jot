@@ -82,7 +82,7 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 		return err
 	}
 
-	targetTopic, source, err := resolveTopic(options.Topic, forcedTopic)
+	targetTopic, _, err := resolveTopic(options.Topic, forcedTopic)
 	if err != nil {
 		return err
 	}
@@ -90,11 +90,12 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 		return err
 	}
 
-	topicPath := filepath.Join(paths.TopicsDir, targetTopic+".md")
-	line := "- " + options.Text
-	if options.Checkbox {
-		line = "- [ ] " + options.Text
+	lines, err := a.addLines(options)
+	if err != nil {
+		return err
 	}
+
+	topicPath := filepath.Join(paths.TopicsDir, targetTopic+".md")
 
 	f, err := os.OpenFile(topicPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 	if err != nil {
@@ -104,14 +105,46 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 		_ = f.Close()
 	}()
 
-	if _, err := fmt.Fprintln(f, line); err != nil {
-		return err
+	for _, line := range lines {
+		if _, err := fmt.Fprintln(f, line); err != nil {
+			return err
+		}
 	}
 
-	if _, err := fmt.Fprintf(a.stdout, "added to %s (%s)\n", targetTopic, source); err != nil {
+	if _, err := fmt.Fprintln(a.stdout, a.metaLine(fmt.Sprintf("added to topic %s", targetTopic))); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (a *App) addLines(options AddOptions) ([]string, error) {
+	text := strings.TrimSpace(options.Text)
+	if text == "" {
+		if isTTYReader(a.stdin) {
+			if _, err := fmt.Fprintln(a.stdout, a.metaLine("Enter note text. Press Ctrl-D on a blank line to finish.")); err != nil {
+				return nil, err
+			}
+		}
+		raw, err := io.ReadAll(a.stdin)
+		if err != nil {
+			return nil, err
+		}
+		text = strings.TrimSpace(string(raw))
+	}
+	if text == "" {
+		return nil, &UsageError{Message: "usage: jot add [-c|--checkbox] [-t|--topic <topic>] [text]"}
+	}
+
+	lines := splitNonEmptyLines(text)
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if options.Checkbox {
+			result = append(result, "- [ ] "+line)
+			continue
+		}
+		result = append(result, "- "+line)
+	}
+	return result, nil
 }
 
 func (a *App) Show(topicOverride string) error {
@@ -283,6 +316,19 @@ func splitLines(content string) []string {
 	return lines
 }
 
+func splitNonEmptyLines(content string) []string {
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	lines := make([]string, 0, 8)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
 func updateCheckboxLine(line string, done bool) (string, error) {
 	const (
 		open  = "- [ ] "
@@ -337,6 +383,38 @@ func resolveTopic(explicitTopic string, forcedTopic string) (string, string, err
 
 func invalidTopicError(topic string) error {
 	return fmt.Errorf("invalid topic %q: use only [A-Za-z0-9._-], and topic cannot be dot or dot-dot", topic)
+}
+
+func (a *App) metaLine(message string) string {
+	// Use styling only for terminal output so redirected output stays clean.
+	if isTTYWriter(a.stdout) {
+		return "\033[1;36m[jot]\033[0m " + message
+	}
+	return "[jot] " + message
+}
+
+func isTTYWriter(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+func isTTYReader(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
 }
 
 func gitBranchTopic() (string, bool) {

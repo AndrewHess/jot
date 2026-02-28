@@ -125,7 +125,7 @@ func Parse(args []string) (ParsedCommand, error) {
 }
 
 func parseAdd(args []string) (ParsedCommand, error) {
-	opts, err := parseAddOptions(args[1:], "usage: jot add [-c|--checkbox] [-t|--topic <topic>] <text>")
+	opts, err := parseAddOptions(args[1:], "usage: jot add [-c|--checkbox] [-t|--topic <topic>] [text]")
 	if err != nil {
 		return ParsedCommand{}, err
 	}
@@ -153,9 +153,6 @@ func parseAddOptions(rawArgs []string, usage string) (AddOptions, error) {
 	}
 
 	text := strings.TrimSpace(strings.Join(addFlags.Args(), " "))
-	if text == "" {
-		return AddOptions{}, &UsageError{Message: usage}
-	}
 
 	return AddOptions{
 		Checkbox: checkbox,
@@ -220,8 +217,9 @@ Usage:
 Commands:
   init
       Initialize .jot in the current project (or nearest parent root).
-  add [-c|--checkbox] [-t|--topic <topic>] <text>
-      Append a note. Use -c for a markdown checkbox item.
+  add [-c|--checkbox] [-t|--topic <topic>] [text]
+      Append a note. If text is omitted, read from stdin until EOF.
+      Use -c for markdown checkbox items.
   show [-t|--topic <topic>]
       Print the active topic file.
       Alias: cat
