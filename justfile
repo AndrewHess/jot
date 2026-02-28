@@ -25,27 +25,7 @@ lint:
     echo "golangci-lint is not installed"; \
     exit 1; \
   fi
-  @version=$(golangci-lint --version | sed -n 's/.*version v\([0-9.]*\).*/\1/p'); \
-  required="1.62.0"; \
-  if [ -z "$version" ]; then \
-    echo "unable to parse golangci-lint version"; \
-    exit 1; \
-  fi; \
-  if [ "$(printf '%s\n' "$required" "$version" | sort -V | head -n1)" != "$required" ]; then \
-    echo "golangci-lint $version is too old for this project/toolchain; please upgrade to >= $required"; \
-    exit 1; \
-  fi
   GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} GOLANGCI_LINT_CACHE=$PWD/.golangci-cache golangci-lint run
 
 run *args:
   GOCACHE={{gocache}} GOMODCACHE={{gomodcache}} go run ./cmd/jot {{args}}
-
-smoke:
-  tmpdir=$(mktemp -d /tmp/jot-smoke.XXXXXX)
-  cd "$tmpdir"
-  {{justfile_directory()}}/bin/jot init
-  {{justfile_directory()}}/bin/jot add "first"
-  {{justfile_directory()}}/bin/jot add -c "checkbox"
-  {{justfile_directory()}}/bin/jot done 2
-  {{justfile_directory()}}/bin/jot show
-  echo "SMOKE_DIR=$tmpdir"

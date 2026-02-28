@@ -40,7 +40,7 @@ func NewApp(stdin io.Reader, stdout io.Writer, stderr io.Writer) (*App, error) {
 }
 
 func (a *App) PrintUsage() {
-	fmt.Fprint(a.stdout, usageText)
+	_, _ = fmt.Fprint(a.stdout, usageText)
 }
 
 func (a *App) Init() error {
@@ -61,7 +61,9 @@ func (a *App) Init() error {
 		return err
 	}
 
-	fmt.Fprintf(a.stdout, "initialized jot in %s\n", filepath.Join(root, toolDirName))
+	if _, err := fmt.Fprintf(a.stdout, "initialized jot in %s\n", filepath.Join(root, toolDirName)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -98,13 +100,17 @@ func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	if _, err := fmt.Fprintln(f, line); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(a.stdout, "added to %s (%s)\n", targetTopic, source)
+	if _, err := fmt.Fprintf(a.stdout, "added to %s (%s)\n", targetTopic, source); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -133,7 +139,9 @@ func (a *App) Show(topicOverride string) error {
 		return err
 	}
 	if len(strings.TrimSpace(string(content))) == 0 {
-		fmt.Fprintln(a.stdout, "(empty)")
+		if _, err := fmt.Fprintln(a.stdout, "(empty)"); err != nil {
+			return err
+		}
 		return nil
 	}
 	_, err = a.stdout.Write(content)
@@ -248,10 +256,18 @@ func (a *App) Status(topicOverride string) error {
 		return err
 	}
 
-	fmt.Fprintf(a.stdout, "root: %s\n", root)
-	fmt.Fprintf(a.stdout, "topic: %s\n", topic)
-	fmt.Fprintf(a.stdout, "source: %s\n", source)
-	fmt.Fprintf(a.stdout, "file: %s\n", filepath.Join(paths.TopicsDir, topic+".md"))
+	if _, err := fmt.Fprintf(a.stdout, "root: %s\n", root); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(a.stdout, "topic: %s\n", topic); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(a.stdout, "source: %s\n", source); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(a.stdout, "file: %s\n", filepath.Join(paths.TopicsDir, topic+".md")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -320,7 +336,7 @@ func resolveTopic(explicitTopic string, forcedTopic string) (string, string, err
 }
 
 func invalidTopicError(topic string) error {
-	return fmt.Errorf("invalid topic %q: use only [A-Za-z0-9._-], and topic cannot be . or ..", topic)
+	return fmt.Errorf("invalid topic %q: use only [A-Za-z0-9._-], and topic cannot be dot or dot-dot", topic)
 }
 
 func gitBranchTopic() (string, bool) {
