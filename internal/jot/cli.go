@@ -14,7 +14,6 @@ const (
 	CommandHelp Command = iota
 	CommandInit
 	CommandAdd
-	CommandLater
 	CommandShow
 	CommandEdit
 	CommandDone
@@ -63,8 +62,6 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) err
 		return app.Init()
 	case CommandAdd:
 		return app.Add(parsed.AddOptions)
-	case CommandLater:
-		return app.AddToLater(parsed.AddOptions)
 	case CommandShow:
 		return app.Show(parsed.Topic)
 	case CommandEdit:
@@ -92,8 +89,6 @@ func Parse(args []string) (ParsedCommand, error) {
 		return ParsedCommand{Kind: CommandInit, OriginalArgs: args}, nil
 	case "add":
 		return parseAdd(args)
-	case "later":
-		return parseLater(args)
 	case "show", "cat":
 		topic, err := parseTopicFlag(args[1:], "usage: jot show [-t|--topic <topic>]")
 		if err != nil {
@@ -137,22 +132,6 @@ func parseAdd(args []string) (ParsedCommand, error) {
 
 	return ParsedCommand{
 		Kind:         CommandAdd,
-		AddOptions:   opts,
-		OriginalArgs: args,
-	}, nil
-}
-
-func parseLater(args []string) (ParsedCommand, error) {
-	opts, err := parseAddOptions(args[1:], "usage: jot later [-c|--checkbox] <text>")
-	if err != nil {
-		return ParsedCommand{}, err
-	}
-	if opts.Topic != "" {
-		return ParsedCommand{}, &UsageError{Message: "usage: jot later [-c|--checkbox] <text>"}
-	}
-
-	return ParsedCommand{
-		Kind:         CommandLater,
 		AddOptions:   opts,
 		OriginalArgs: args,
 	}, nil
@@ -243,8 +222,6 @@ Commands:
       Initialize .jot in the current project (or nearest parent root).
   add [-c|--checkbox] [-t|--topic <topic>] <text>
       Append a note. Use -c for a markdown checkbox item.
-  later [-c|--checkbox] <text>
-      Add to the "later" topic (or $JOT_LATER_TOPIC if set).
   show [-t|--topic <topic>]
       Print the active topic file.
       Alias: cat
@@ -258,21 +235,4 @@ Commands:
       Show active root, topic source, and topic file path.
   help
       Show this message.
-
-Topic resolution:
-  1. -t / --topic always wins for that command.
-  2. Otherwise current git branch is used as the topic.
-  3. Outside git, pass -t / --topic.
-
-Storage:
-  - .jot/state.json
-  - .jot/topics/<topic>.md
-
-Examples:
-  jot add "capture a quick note"
-  jot add -c "follow up with QA"
-  jot add -t later "not part of this story"
-  jot later -c "revisit after release"
-  jot show
-  jot done 3
 `

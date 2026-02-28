@@ -31,19 +31,6 @@ func TestParseAddWithTopic(t *testing.T) {
 	}
 }
 
-func TestParseLater(t *testing.T) {
-	cmd, err := Parse([]string{"later", "follow", "up"})
-	if err != nil {
-		t.Fatalf("Parse returned error: %v", err)
-	}
-	if cmd.Kind != CommandLater {
-		t.Fatalf("expected CommandLater, got %v", cmd.Kind)
-	}
-	if cmd.AddOptions.Text != "follow up" {
-		t.Fatalf("unexpected text %q", cmd.AddOptions.Text)
-	}
-}
-
 func TestParseShowWithTopic(t *testing.T) {
 	cmd, err := Parse([]string{"show", "-t", "later"})
 	if err != nil {

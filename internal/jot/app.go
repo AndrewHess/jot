@@ -17,7 +17,6 @@ const (
 	toolDirName   = ".jot"
 	topicsDirName = "topics"
 	stateFileName = "state.json"
-	laterTopicEnv = "JOT_LATER_TOPIC"
 )
 
 var topicPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
@@ -68,10 +67,6 @@ func (a *App) Init() error {
 
 func (a *App) Add(options AddOptions) error {
 	return a.addToTopic(options, "")
-}
-
-func (a *App) AddToLater(options AddOptions) error {
-	return a.addToTopic(options, laterTopicName())
 }
 
 func (a *App) addToTopic(options AddOptions, forcedTopic string) error {
@@ -360,14 +355,6 @@ func normalizeTopicName(raw string) string {
 		return ""
 	}
 	return result
-}
-
-func laterTopicName() string {
-	topic := strings.TrimSpace(os.Getenv(laterTopicEnv))
-	if topic == "" {
-		return "later"
-	}
-	return normalizeTopicName(topic)
 }
 
 type Paths struct {

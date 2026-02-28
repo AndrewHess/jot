@@ -35,7 +35,6 @@ just run --help
 ```text
 jot init
 jot add [-c|--checkbox] [-t|--topic <topic>] <text>
-jot later [-c|--checkbox] <text>
 jot show [-t|--topic <topic>]
 jot edit [-t|--topic <topic>]
 jot done [-t|--topic <topic>] <line-number>
@@ -47,8 +46,7 @@ jot help | jot -h | jot --help
 Behavior notes:
 - In a git repository, the active topic defaults to your current branch name.
 - Outside git, pass `-t <topic>` for topic-dependent commands.
-- `jot add -t <topic> ...` writes to another topic without switching current context.
-- `jot later ...` is shorthand for adding to topic `later` (override with `JOT_LATER_TOPIC`).
+- `jot add -t <topic> ...` writes to any topic as a one-off without switching context.
 
 ## Layout
 
@@ -67,7 +65,6 @@ jot add "triage flaky test in CI"
 jot add -c "submit fix PR"
 jot add "repro only on arm64"
 jot add -t later "follow up on flaky benchmark"
-jot later -c "revisit this after release"
 jot show
 jot done 1
 jot edit

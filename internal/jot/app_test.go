@@ -37,20 +37,6 @@ func TestNormalizeTopicName(t *testing.T) {
 	}
 }
 
-func TestLaterTopicNameDefaultAndEnv(t *testing.T) {
-	t.Setenv(laterTopicEnv, "")
-	if got := laterTopicName(); got != "later" {
-		t.Fatalf("expected later, got %q", got)
-	}
-
-	t.Setenv(laterTopicEnv, "inbox/next-up")
-	if got := laterTopicName(); got != "inbox-next-up" {
-		t.Fatalf("unexpected env topic %q", got)
-	}
-
-	_ = os.Unsetenv(laterTopicEnv)
-}
-
 func TestResolveTopicExplicit(t *testing.T) {
 	topic, source, err := resolveTopic("foo", "")
 	if err != nil {
