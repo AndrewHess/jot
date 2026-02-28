@@ -5,7 +5,7 @@ project_name: jot
 before:
   hooks:
     - go mod tidy
-    - GOCACHE=./.gocache go test ./...
+    - go test ./...
 
 builds:
   - id: jot
