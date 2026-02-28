@@ -1,6 +1,7 @@
 package jot
 
 import (
+	"bytes"
 	"os"
 	"testing"
 )
@@ -86,5 +87,20 @@ func TestResolveTopicRejectsDotTopics(t *testing.T) {
 	_, _, err = resolveTopic("..", "")
 	if err == nil {
 		t.Fatal("expected error for dot-dot topic")
+	}
+}
+
+func TestAddLinesFromStdin(t *testing.T) {
+	app, err := NewApp(bytes.NewBufferString("first\n\nsecond\n"), &bytes.Buffer{}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("NewApp returned error: %v", err)
+	}
+
+	lines, err := app.addLines(AddOptions{Checkbox: false})
+	if err != nil {
+		t.Fatalf("addLines returned error: %v", err)
+	}
+	if len(lines) != 2 || lines[0] != "- first" || lines[1] != "- second" {
+		t.Fatalf("unexpected lines: %#v", lines)
 	}
 }

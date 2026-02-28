@@ -31,6 +31,22 @@ func TestParseAddWithTopic(t *testing.T) {
 	}
 }
 
+func TestParseAddWithoutText(t *testing.T) {
+	cmd, err := Parse([]string{"add", "-c"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	if cmd.Kind != CommandAdd {
+		t.Fatalf("expected CommandAdd, got %v", cmd.Kind)
+	}
+	if !cmd.AddOptions.Checkbox {
+		t.Fatalf("expected checkbox=true")
+	}
+	if cmd.AddOptions.Text != "" {
+		t.Fatalf("expected empty text, got %q", cmd.AddOptions.Text)
+	}
+}
+
 func TestParseShowWithTopic(t *testing.T) {
 	cmd, err := Parse([]string{"show", "-t", "later"})
 	if err != nil {
